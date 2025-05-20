@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="utf-8" />
+    <title>Edit Profile</title>
+    <link href="LoginAndRegisterCSS.css" rel="stylesheet" />
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+            crossorigin="anonymous">
+    </script>
+
+    <script src="scripts/ajaxCalls.js"></script>
+    <script src="scripts/auth.js"></script>
+    <script src="scripts/showMessage.js"></script>
+    <script src="moviesArray/movies-db.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            
+            const user = getLoggedInUser();
+            $("#userGreeting").text(`Hi, ${user.name}`);
+            if (isLoggedIn()) {
+                $("#userGreeting").text(`Hi, ${user.name}`);
+                $("#editProfileBTN").show()
+                $("#logoutBtn").show();             
+                
+            }
+            else {
+                $("#logoutBtn").hide();
+                $("#editProfileBTN").hide()
+            }
+
+            $("#editProfileForm input[name='password']").on("input", function () {
+                    const pattern = /(?=.*[A-Z])(?=.*\d).{8,}/;
+                    if (!pattern.test(this.value)) {
+                        this.setCustomValidity("Password must be 8+ characters with at least one number and one uppercase letter.");
+                    }
+                    else {
+                        this.setCustomValidity("");
+                    }
+            });
+
+            $("#editProfileForm input[name='email']").on("input", function () {
+                const email = this.value.trim();
+                const pattern = /^.{1,}@[\w.-]+\.[A-Za-z]{2,}$/;
+
+                if (!pattern.test(email)) {
+                    this.setCustomValidity("Email must start with at least 1 character, followed by '@', a domain, a dot ('.'), and at least 2 letters (e.g. .com, .net).");
+                }
+                else {
+                    this.setCustomValidity("");
+                }
+            });
+
+            $("#editProfileForm input[name='name']").on("input", function () {
+                const pattern = /^[A-Za-z]{2,}$/;
+                if (!pattern.test(this.value)) {
+                    this.setCustomValidity("Name must be at least 2 letters and contain only letters.");
+                }
+                else {
+                    this.setCustomValidity("");
+                }
+            });
+
+            $("#editProfileForm").on("submit", function (e) {
+                e.preventDefault();
+
+                const email = $("#regEmail").val().trim();
+                const password = $("#regPassword").val().trim();
+                const name = $("#regName").val().trim();
+                const active = $("#regActive").is(":checked");
+
+                const port = 7218;
+                const url = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/User/${user.id}`;
+                const userObj = {
+                    Active: active,
+                    Email: email,
+                    Id: user.id,
+                    Name: name,
+                    Password: password                    
+                }
+                ajaxCall("PUT", url, JSON.stringify(userObj), UpdateSCB, UpdateECB);
+            })
+
+            function UpdateSCB(res)
+            {
+                console.log(res);
+                showMessage("Updated the profile successfully");
+            }
+
+            function UpdateECB(err)
+            {
+                console.log(err);
+                showMessage("Failed to update the profile");
+            }
+        });
+    </script>
+
+</head>
+<body>
+
+    <header>
+        <nav>
+            <a href="index.html">Home</a>
+            <a href="MyMovies.html">My Movies</a>
+            <a href="LoginAndRegister.html">Login And Register</a>
+            <div class="nav-user-controls">
+                <span id="userGreeting" class="greeting"></span>
+                <a href="#" id="logoutBtn" class="logout-link">Logout</a>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h2>Edit Your Profile</h2>
+        <form id="editProfileForm">
+            <div class="form-group">
+                <label for="regEmail">Email:</label>
+                <input type="email" id="regEmail" name="email" placeholder="Enter your email" required />
+
+            </div>
+            <div class="form-group">
+                <label for="regPassword">Password:</label>
+                <input type="password" id="regPassword" name="password" placeholder="Enter your password" required />
+            </div>
+            <div class="form-group">
+                <label for="regName">Name:</label>
+                <input type="text" id="regName" name="name" placeholder="Enter your name" required />
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="regActive" name="active" checked />
+                <label for="regActive">Active?</label>
+            </div>
+            <button type="submit" class="login-button">Update My Profile</button>
+        </form>
+    </div>
+
+    <dialog id="messageDialog">
+        <p id="messageText"></p>
+    </dialog>
+
+</body>
+</html>

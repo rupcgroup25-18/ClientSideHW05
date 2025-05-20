@@ -1,0 +1,150 @@
+﻿* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+    flex-direction: column;
+    background-image: url('./images/backgroundImage.jpg'); 
+    background-size: cover; 
+    background-position: center;
+}
+
+header {
+    background-color: #0d1a2d;
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+nav {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    background-color: #0d1a2d;
+    padding: 15px 20px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+}
+
+nav a {
+    display: inline-block;
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+nav a:hover {
+    color: lawngreen;
+    text-decoration: underline;
+}
+
+.nav-user-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.container {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    width: 100%;
+    max-width: 400px;
+    margin-top: 80px;
+}
+
+h2 {
+    text-align: center;
+    color: #333;
+}
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+label {
+    display: block;
+    margin-bottom: 6px;
+    color: #555;
+    font-weight: 500;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.checkbox-group input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+.login-button {
+    width: 100%;
+    padding: 12px;
+    background-color: #4a69bd;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.login-button:hover {
+    background-color: #3c58a0;
+}
+
+.toggle-link {
+    text-align: center;
+    margin-top: 16px;
+    color: #4a69bd;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.toggle-link:hover {
+    text-decoration: none;
+    color: #2c3e90;
+}
+
+.logout-link {
+    color: white;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.logout-link:hover {
+    color: red;
+    text-decoration: underline;
+}
+
+.greeting {
+    color: white;
+    font-weight: bold;
+}

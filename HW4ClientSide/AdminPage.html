@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin User Management</title>
+    <link rel="stylesheet" href="AdminPageCSS.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="scripts/ajaxCalls.js"></script>
+    <script src="scripts/auth.js"></script>
+    <script src="scripts/showMessage.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>User Management</h1>
+        <div class="table-container">
+            <table id="userTable">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="userTableBody">
+                    <!-- Users will be loaded dynamically -->
+                </tbody>
+            </table>
+        </div>
+        <div id="messageArea" class="message-area"></div>
+    </div>
+
+    <script>
+        const port = 7218;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const userTableBody = document.getElementById('userTableBody');
+            const messageArea = document.getElementById('messageArea');
+            const user = getLoggedInUser();
+
+            if (!isLoggedIn()) {
+                window.location.href = 'LoginAndRegister.html';
+                return;
+            }
+
+            loadUsers();
+
+            function loadUsers() {
+                ajaxCall("GET", `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/User`,
+                "", renderUsers, error => {
+                    showMessage("Failed to load users.", 'error');
+                    console.error(error);
+                });
+            }
+
+            function renderUsers(users) {
+                userTableBody.innerHTML = '';
+
+                users.forEach(user => {
+                    const row = userTableBody.insertRow();
+                    row.setAttribute('data-user-id', user.id);
+
+                    const usernameCell = row.insertCell();
+                    usernameCell.textContent = user.name;
+                    usernameCell.classList.add('username-cell');
+
+                    const statusCell = row.insertCell();
+                    const isActive = user.active;
+                    statusCell.textContent = isActive ? 'Active' : 'Inactive';
+                    statusCell.classList.add(isActive ? 'status-active' : 'status-inactive');
+
+                    const actionsCell = row.insertCell();
+                    actionsCell.classList.add('actions-cell');
+
+                    const activateBtn = document.createElement('button');
+                    activateBtn.textContent = 'Activate';
+                    activateBtn.classList.add('activate-btn');
+                    activateBtn.disabled = isActive;
+                    activateBtn.addEventListener('click', () => toggleUserStatus(user, true));
+
+                    const deactivateBtn = document.createElement('button');
+                    deactivateBtn.textContent = 'Deactivate';
+                    deactivateBtn.classList.add('deactivate-btn');
+                    deactivateBtn.disabled = !isActive;
+                    deactivateBtn.addEventListener('click', () => toggleUserStatus(user, false));
+
+                    actionsCell.appendChild(activateBtn);
+                    actionsCell.appendChild(deactivateBtn);
+                });
+            }
+
+            function toggleUserStatus(user, newStatus) {
+                if (user.active === newStatus) return;
+
+                const updatedUser = {
+                    ...user,
+                    active: newStatus
+                };
+
+                const url = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/User/${user.id}`
+
+                ajaxCall("PUT", url, JSON.stringify(updatedUser),
+                    () => {
+                        loadUsers(); // Refresh the user list
+                        showMessage(`${user.name} has been ${newStatus ? 'activated' : 'deactivated'}.`, 'success');
+                    },
+                    err => {
+                        showMessage("Failed to update user.", 'error');
+                        console.error(err);
+                    }
+                );
+            }
+
+            function showMessage(msg, type) {
+                messageArea.textContent = msg;
+                messageArea.className = `message-area message-${type}`;
+                setTimeout(() => {
+                    messageArea.textContent = '';
+                    messageArea.className = 'message-area';
+                }, 3000);
+            }
+        });
+    </script>
+</body>
+</html>

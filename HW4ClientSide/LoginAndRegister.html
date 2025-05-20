@@ -1,0 +1,260 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="utf-8" />
+    <title>Login And Register</title>
+    <link href="LoginAndRegisterCSS.css" rel="stylesheet" />
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+            crossorigin="anonymous">
+    </script>
+
+    <script src="scripts/ajaxCalls.js"></script>
+    <script src="scripts/showMessage.js"></script>
+    <script type="text/javascript" src="./scripts/auth.js"></script>
+    <script>
+
+        $(document).ready(function () {
+
+            const user = getLoggedInUser();
+            if (isLoggedIn()) {
+                $("#userGreeting").text(`Hi, ${user.name}`);
+                $("#logoutBtn").show();
+                $("editProfileBTN").show();
+                $("#userGreeting").show();
+
+                $("#loginForm :input, #registerForm :input").prop("disabled", true);
+
+                $("#logoutBtn").click(function (e) {
+                    e.preventDefault();
+                    localStorage.removeItem("loggedInUser");
+                    showMessage("You have successfully logged out.");
+                    setTimeout(() => {
+                        window.location.href = "LoginAndRegister.html";
+                    }, 2200);
+                });
+            }
+            else {
+                $("#logoutBtn").hide();
+                $("#userGreeting").hide();
+                $("#editProfileBTN").hide();
+                $("#loginForm :input, #registerForm :input").prop("disabled", false);
+            }
+
+            // Showing login form by default
+            $("#registerForm").hide();
+
+            $("#showRegister").click(function () {
+                $("#loginForm").hide();
+                $("#registerForm").show();
+            });
+
+            $("#showLogin").click(function () {
+                $("#registerForm").hide();
+                $("#loginForm").show();
+            });
+
+            $("#registerForm input[name='email']").on("input", function () {
+                const pattern = /^.{1,}@[\w.-]+\.[A-Za-z]{2,}$/;
+                if (!pattern.test(this.value.trim())) {
+                    this.setCustomValidity("Email must start with at least 1 character, followed by '@', a domain, a dot ('.'), and at least 2 letters (e.g. .com, .net).");
+                }
+                else {
+                    this.setCustomValidity("");
+                }
+            });
+
+            $("#registerForm input[name='password']").on("input", function () {
+                const pattern = /(?=.*[A-Z])(?=.*\d).{8,}/;
+                if (!pattern.test(this.value)) {
+                    this.setCustomValidity("Password must be 8+ characters with at least one number and one uppercase letter.");
+                }
+                else {
+                    this.setCustomValidity("");
+                }
+            });
+
+            $("#registerForm input[name='name']").on("input", function () {
+                const pattern = /^[A-Za-z]{2,}$/;
+                if (!pattern.test(this.value)) {
+                    this.setCustomValidity("Name must be at least 2 letters and contain only letters.");
+                }
+                else {
+                    this.setCustomValidity("");
+                }
+            });
+
+            $("#registerForm").on("submit", function (e) {
+                e.preventDefault();
+
+                const email = $("#regEmail").val().trim();
+                const password = $("#regPassword").val().trim();
+                const name = $("#regName").val().trim();
+                const active = $("#regActive").is(":checked");
+
+                const newUser = {
+                    id: 0,
+                    email: email,
+                    password: password,
+                    name: name,
+                    active: active
+                };
+
+                const port = 7218;
+                const url = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/User/Register`;
+
+                ajaxCall("POST", url, JSON.stringify(newUser), RegisterSCB, RegisterECB);
+            });
+
+            $("#loginForm input[name='email']").on("input", function () {
+                const email = this.value.trim();
+                const pattern = /^.{1,}@[\w.-]+\.[A-Za-z]{2,}$/;
+
+                if (!pattern.test(email)) {
+                    this.setCustomValidity("Email must start with at least 1 character, followed by '@', a domain, a dot ('.'), and at least 2 letters (e.g. .com, .net).");
+                }
+                else {
+                    this.setCustomValidity("");
+                }
+            });
+
+            $("#loginForm input[name='password']").on("input", function () {
+                const pattern = /(?=.*[A-Z])(?=.*\d).{8,}/;
+                if (!pattern.test(this.value)) {
+                    this.setCustomValidity("Password must be 8+ characters with at least one number and one uppercase letter.");
+                }
+                else {
+                    this.setCustomValidity("");
+                }
+            });
+
+            $("#loginForm").on("submit", function (e) {
+                e.preventDefault();
+
+                const email = $("#email").val().trim();
+                const password = $("#password").val().trim();
+
+                const loginUser = {
+                    email: email,
+                    password: password,
+                    id: 0, // Default
+                    active: true, // Default
+                    name: '' // Default
+                };
+
+                const port = 7218;
+                const url = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/User/Login`;
+
+                ajaxCall("POST", url, JSON.stringify(loginUser), LoginSCB, LoginECB);
+            });
+        });
+
+        function RegisterSCB(res) {
+            console.log(res);
+
+            if (!res) {
+                showMessage("Registration failed! There is already a user existing with the email.");
+                $("#registerForm")[0].reset();
+                return;
+            }
+
+            showMessage(res["message"]);
+            $("#registerForm")[0].reset();
+
+            setTimeout(() => {
+                window.location.href = "LoginAndRegister.html";
+            }, 2200);
+        }
+
+        function RegisterECB(err) {
+            console.log(err);
+            showMessage("An error occured! Please try again!");
+            $("#registerForm")[0].reset();
+        }
+
+        function LoginSCB(res) {
+            console.log(res);
+            if(!res.active) {
+                showMessage("The user is not active! Cannot log in!");
+                return;
+            }
+            localStorage.setItem("loggedInUser", JSON.stringify(res));
+            showMessage(`Welcome back, ${res.name}! Redirecting to main page...`);
+
+            setTimeout(() => {
+                window.location.href = "index.html";
+            }, 2200);
+        }
+
+        function LoginECB(err) {
+            console.log(err);
+            const errorMessage = err.responseText || "Unknown Error";
+            showMessage(errorMessage);
+        }
+
+    </script>
+
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="index.html">Home</a>
+            <a href="MyMovies.html">My Movies</a>
+            <a href="MovieData.html">Add a Movie</a>
+            <a href="EditProfile.html" id="editProfileBTN">Edit My Profile</a>
+            <div class="nav-user-controls">
+                <span id="userGreeting" class="greeting"></span>
+                <a href="#" id="logoutBtn" class="logout-link">Logout</a>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container">
+        <!-- Login Form -->
+        <form id="loginForm">
+            <h2>Login</h2>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" placeholder="Enter your email" required />
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" placeholder="Enter your password" required />
+            </div>
+            <button type="submit" class="login-button">Login</button>
+            <div class="toggle-link" id="showRegister">Don't have an account? Register</div>
+        </form>
+
+        <!-- Register Form -->
+        <form id="registerForm">
+            <h2>Register</h2>
+            <div class="form-group">
+                <label for="regEmail">Email:</label>
+                <input type="email" id="regEmail" name="email" placeholder="Enter your email" required />
+            </div>
+            <div class="form-group">
+                <label for="regPassword">Password:</label>
+                <input type="password" id="regPassword" name="password" placeholder="Enter your password" required />
+            </div>
+            <div class="form-group">
+                <label for="regName">Name:</label>
+                <input type="text" id="regName" name="name" placeholder="Enter your name" required />
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="regActive" name="active" checked />
+                <label for="regActive">Active?</label>
+            </div>
+            <button type="submit" class="login-button">Register</button>
+            <div class="toggle-link" id="showLogin">Already have an account? Login</div>
+        </form>
+    </div>
+
+    <!-- Used to display custom messages -->
+    <dialog id="messageDialog">
+        <p id="messageText"></p>
+    </dialog>
+
+</body>
+</html>

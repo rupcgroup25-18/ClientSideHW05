@@ -1,0 +1,397 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>My Movies</title>
+    <link href="MyMoviesCSS.css" rel="stylesheet" />
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+            crossorigin="anonymous">
+    </script>
+
+    <script src="scripts/ajaxCalls.js"></script>
+    <script src="scripts/auth.js"></script>
+    <script src="scripts/FormatNumber.js"></script>
+    <script src="scripts/showMessage.js"></script>
+
+    <script>
+        let allMovies = [];
+        let rentedMovieObj;
+        let currentSearchContext = "initial"; // Global declaration
+        const user = getLoggedInUser();
+
+        $(document).ready(function () {
+
+            $("#editProfileBTN").show();
+            if (!user) {
+                showLoginDialogIfNeeded();
+                $("#logoutBtn").hide();
+                $("#editProfileBTN").hide();
+                return;
+            }
+
+
+            $("#userGreeting").text(`Hi, ${user.name}`);
+            $("#logoutBtn").show();
+
+            init();
+
+            $("#logoutBtn").click(function (e) {
+                e.preventDefault();
+                localStorage.removeItem("loggedInUser");
+                showMessage("You have successfully logged out.");
+                setTimeout(() => {
+                    window.location.href = "LoginAndRegister.html";
+                }, 2200);
+            });
+
+            $("#myMoviesPresentIcon span:nth-child(2)").click(function () {
+                const port = 7218;
+                const url = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/RentMovie/GetRentedMovies?userId=${user.id}`;
+                const urlRentedMovie = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/RentMovie/${user.id}`;
+                $("#movieDropdown").prop("selectedIndex", 0);
+                $("#movieDropdown").children(":not(:first)").remove();
+                $("#presentDialogMovies")[0].showModal();
+                ajaxCall("GET", url, "", getMoviesSCB, getMoviesECB);
+                ajaxCall("GET", urlRentedMovie, "", getMoviesSCB, getMoviesECB);
+            });
+
+            $("#rentFormMovies").on("submit", function (e) {
+                e.preventDefault();               
+                rentedMovieObj = allMovies.find(m => m.movieId == $("#movieDropdown").val());
+                const port = 7218;
+                const url = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/User`;
+                $("#presentDialogMovies")[0].close();
+                $("#presentDialogUsers")[0].showModal();
+                ajaxCall("GET", url, "", getUsersSCB, getUsersECB);
+            });
+
+            $("#rentFormUsers").on("submit", function (e) {
+                e.preventDefault();
+                $("#userSubmitBTN").prop('disabled', true); // Rejecting access to the button after he is clicked
+                const port = 7218;
+                rentedMovieObj.userId = $("#userDropdown").val();
+                const url = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/RentMovie`;
+                ajaxCall("POST", url, JSON.stringify(rentedMovieObj), postRentedMovieSCB, postRentedMovieECB);
+            });
+        });
+
+        function postRentedMovieSCB(res)
+        {
+            const $message = $('#cartMessage');
+            $message.addClass('show');
+
+            if (res.success === true) {
+                $message.css('background-color', 'green')
+                    .text(`${res.message}`);
+            } else {
+                $message.css('background-color', 'green')
+                    .text("A problem occured. Please try again");
+            }
+
+            $message.fadeIn().delay(2000).fadeOut(function () {
+                $message.removeClass('show').hide();
+                $("#presentDialogUsers")[0].close();
+                $("#userSubmitBTN").prop('disabled', false); 
+            });
+        }
+
+        function postRentedMovieECB(err)
+        {
+            const $message = $('#cartMessage');
+            $message.addClass('show');
+
+            // Extract message from server response if available
+            const responseJSON = err.responseJSON;
+            const message = responseJSON?.message || 'Something went wrong. Please try again.';
+            $message.css('background-color', 'red').text(message);
+
+            $message.fadeIn().delay(2000).fadeOut(function () {
+                $message.removeClass('show').hide();
+                $("#presentDialogUsers")[0].close();
+                $("#userSubmitBTN").prop('disabled', false); 
+            });
+        }
+
+        function getUsersSCB(res)
+        {
+            $("#userDropdown").children(":not(:first)").remove();
+            $("#userDropdown").prop("selectedIndex", 0);
+            for (const userObj of res) {
+                if(userObj.name === user.name) continue;
+                const $option = $("<option>", {
+                    value: userObj.id,
+                    text: userObj.name
+                });
+                $("#userDropdown").append($option);
+            }
+        }
+
+        function getUsersECB(err)
+        {
+            console.log(err);
+        }
+
+        function getMoviesSCB(res) {
+            for (const movie of res) { 
+                if (!movie.rentStart) {
+                    const $option = $("<option>", {
+                        value: movie.id,
+                        text: movie.primaryTitle
+                    });
+                    $("#movieDropdown").append($option);
+                } else {
+                   allMovies.push(movie);
+                }
+            }
+        }
+            
+
+        function getMoviesECB(err)
+        {
+            console.log(err);
+        }
+
+        function init() {
+            port = 7218;
+            ReadAllMovies();
+        }
+
+        function ReadAllMovies() {
+            currentSearchContext = "initial";
+            const port = 7218;
+            const url = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/RentMovie/GetRentedMovies?userId=${user.id}`;
+            ajaxCall("GET", url, "", readSCB, readECB);
+        }
+
+        function readSCB(res)
+        { 
+            console.log(res);
+            const $moviesDiv = $('#moviesDiv');
+            $moviesDiv.empty();
+
+            if (res.length === 0) {
+                switch (currentSearchContext)
+                {
+                    case "initial":
+                        showMessage("No movies found.");
+                        break;
+                    case "titleSearch":
+                        showMessage("No movies match the provided title.");
+                        setTimeout(() => {
+                            location.reload();
+                        }, 2000);
+                        break;
+                    case "dateSearch":
+                        showMessage("No movies found in the selected date range.");
+                        setTimeout(() => {
+                            location.reload();
+                        }, 2000);
+                        break;
+                }
+                return;
+            }
+
+            res.forEach(movie =>
+            {
+                // Create the movie card container
+                const $movieCard = $('<div></div>')
+                    .addClass("movie-card")
+                    .attr("id", `movie-${movie.id}`);
+
+                // Movie image
+                const $img = $('<img>').attr('src', movie.primaryImage).attr('alt', movie.primaryTitle);
+
+                // Movie info container
+                const $movieInfo = $('<div class="movie-info"></div>');
+
+                // Movie title
+                const $title = $('<h3 class="movie-title"></h3>').text(movie.primaryTitle);
+
+                const $movieRated = $("<span>")
+                    .addClass("movie-language")
+                    .text(movie.language);
+
+                // Movie metadata (year & duration)
+                const $meta = $('<div class="movie-meta"></div>').html(`${movie.year} | ${movie.runtimeMinutes} min | `);
+                $meta.append($movieRated);
+
+                // Movie description
+                const $description = $('<p class="movie-description"></p>').text(movie.description);
+
+                // Genres section
+                const $genresDiv = $('<div class="genres"></div>');
+                movie.genres.split(',').forEach(genre => {
+                    const $genreSpan = $('<span class="genre-badge"></span>').text(genre.trim());
+                    $genresDiv.append($genreSpan);
+                });
+
+                // Add a gray separator line
+                const $separator = $('<div class="separator"></div>');
+
+                // Movie stats section (Budget, box office and votes)
+                const $movieStatsDiv = $('<div class="movie-stats"></div>');
+
+                // Budget
+                const $movieBudgetDiv = $('<div></div>');
+                const $movieBudgetTitle = $('<span></span>').text("Budget").css('color', 'gray').css('display', 'block');
+                const $movieBudgetAmount = $('<span></span>').text(formatNumber(movie.budget));
+                $movieBudgetDiv.append($movieBudgetTitle).append($movieBudgetAmount);
+
+                // Box office
+                const $movieBoxOfficeDiv = $('<div></div>');
+                const $movieBoxOfficeTitle = $('<span></span>').text("Box Office").css('color', 'gray').css('display', 'block');
+                const $movieBoxOfficeAmount = $('<span></span>').text(formatNumber(movie.grossWorldwide));
+                $movieBoxOfficeDiv.append($movieBoxOfficeTitle).append($movieBoxOfficeAmount);
+
+                // Votes
+                const $movieVotesDiv = $('<div></div>');
+                const $movieVotesTitle = $('<span></span>').text("Votes").css('color', 'gray').css('display', 'block');
+                const $movieVotesAmount = $('<span></span>').text(formatNumber(movie.numVotes));
+                $movieVotesDiv.append($movieVotesTitle).append($movieVotesAmount);
+
+                // Appending Budget, box office, and votes divs to the movie stats div
+                $movieStatsDiv.append($movieBudgetDiv).append($movieBoxOfficeDiv).append($movieVotesDiv);
+
+                // Rating badge
+                const $ratingDiv = $('<div class="rating-badge"></div>').text(`⭐ ${movie.averageRating}/10`);
+
+                // Delete movie button
+                const $DeleteButton = $('<button class="delete-button"></button>')
+                    .text("Delete")
+                    .on('click', function () {
+                        DeleteMovie(movie, this);
+                    })
+                    .attr("id", `deleteId-${movie.Id}`);
+
+                // Append elements to the movie card
+                $movieCard.append($img)
+                    .append($DeleteButton)
+                    .append($ratingDiv)
+                    .append($movieInfo.append($title).append($meta).append($description).append($genresDiv).append($separator).append($movieStatsDiv));
+
+                // Append movie card to moviesDiv
+                $moviesDiv.append($movieCard);
+            });
+        }
+
+        function readECB(err) {
+            showMessage("No rented movies for this user");
+        }
+
+        function DeleteMovie(movie, buttonElement) {
+            console.log(movie);
+            const deleteUrl = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/RentMovie/${user.id}/${movie.id}`;
+            ajaxCall("DELETE", deleteUrl, "", deleteSCB, deleteECB);
+        }
+
+        function deleteSCB(res) {
+            console.log(res);
+            if (res.success) {
+                $(`#movie-${res.movieIdReturn}`).fadeOut(800, function () {
+                    $(this).remove();
+                });
+            } else {
+                console.error("Failed to delete movie:", res.message);
+            }
+        }
+
+
+        function deleteECB(err) {
+            console.log(err);
+            showMessage("There was a problem deleting the rented movie, please try again!");
+        }
+
+        function ReadMovieByTitle() {
+            const TitleInput = $('#searchTitle').val().trim();
+            if (TitleInput === "") {
+                showMessage("No movie title was provided!");
+                return;
+            }
+
+            currentSearchContext = "titleSearch";
+            const GetByTitleURL = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/Movie/GetByTitle?title=${TitleInput}`;
+            ajaxCall("GET", GetByTitleURL, "", readSCB, readECB);
+        }
+
+        function ReadMovieByReleaseDate() {
+            const startDate = $('#searchStartDate').val();
+            const endDate = $('#searchEndDate').val();
+            $('#searchStartDate').val('');
+            $('#searchEndDate').val('');
+
+            if (!startDate || !endDate) {
+                showMessage("Please select both start and end dates.");
+                return;
+            }
+
+            currentSearchContext = "dateSearch";
+            const GetByReleaseDateUrl = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/Movie/GetByReleaseDate/from/${startDate}/until/${endDate}`;
+            ajaxCall("GET", GetByReleaseDateUrl, "", readSCB, readECB);
+        }
+
+    </script>
+
+</head>
+<body>
+
+    <header>
+        <nav>
+            <a href="index.html">Home</a>
+            <a href="MovieData.html">Add a Movie</a>
+            <a href="LoginAndRegister.html">Login And Register</a>
+            <a href="EditProfile.html" id="editProfileBTN">Edit My Profile</a>
+            <div class="nav-user-controls">
+                <span id="userGreeting" class="greeting"></span>
+                <a href="#" id="logoutBtn" class="logout-link">Logout</a>
+            </div>
+        </nav>
+    </header>
+
+    <h2 id="myMoviesPresentIcon">
+        <span>My Rented Movies: </span>
+        <span>🎁</span>
+    </h2>
+
+    <div id="moviesDiv">
+        <!-- Rendered movies go here -->
+    </div>
+
+    <div id="cartMessage" class="cart-message">
+        <!-- Proper message will be displayed if movie was added to cart or not -->
+    </div>
+
+    <dialog id="presentDialogMovies">
+        <form id="rentFormMovies">
+            <button type="button" class="close-dialog"
+             onclick="$(`#presentDialogMovies`)[0].close()"><span>×</span></button>
+            <h3>Select a Movie</h3>
+            <label for="movieDropdown">Choose a movie:</label><br>
+            <select id="movieDropdown" required>
+                <option value="" disabled selected>-- Select a Movie --</option>
+                <!-- Options will be filled dynamically -->
+            </select><br><br>
+            <button type="submit">Select Movie</button>
+        </form>
+    </dialog>
+    
+    <dialog id="presentDialogUsers">
+        <form id="rentFormUsers">
+            <button type="button" class="close-dialog"
+            onclick="$(`#presentDialogUsers`)[0].close()"><span>×</span></button>
+            <h3>Select a User</h3>
+            <label for="userDropdown">Choose a user:</label><br>
+            <select id="userDropdown" required>
+                <option value="" disabled selected>-- Select a User --</option>
+                <!-- Options will be filled dynamically -->
+            </select><br><br>
+            <button id="userSubmitBTN" type="submit">Select User</button>
+        </form>
+    </dialog> 
+
+    <dialog id="messageDialog">
+        <p id="messageText"></p>
+    </dialog>
+</body>
+</html>

@@ -1,0 +1,419 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>index</title>
+    <link href="HomeCSS.css" rel="stylesheet" />
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+            crossorigin="anonymous">
+    </script>
+
+    <script src="scripts/ajaxCalls.js"></script>
+    <script src="moviesArray/movies-db.js"></script>
+    <script src="scripts/auth.js"></script>
+    <script src="scripts/FormatNumber.js"></script>
+    <script src="scripts/showMessage.js"></script>
+
+    <script>
+        let currentMovieObj;
+        let movieId = 1;
+        const user = getLoggedInUser();
+        $(document).ready(function () {
+            $(".search-container").hide();
+
+            if (isLoggedIn()) {
+                $("#userGreeting").text(`Hi, ${user.name}`);
+                $("#logoutBtn").show();
+                $("#editProfileBTN").show();
+            }
+            else {
+                $("#logoutBtn").hide();
+                $("#editProfileBTN").hide();
+            }
+
+            $("#logoutBtn").click(function (e) {
+                e.preventDefault();
+                localStorage.removeItem("loggedInUser");
+                showMessage("You have successfully logged out.");
+                setTimeout(() => {
+                    window.location.href = "LoginAndRegister.html";
+                }, 2200);
+            });
+
+            $(".buttonDiv button").click(function () {
+                $(this).prop("disabled", true);
+                $(this).fadeOut(800, function () {
+                    $(".buttonDiv").remove();
+                });
+                loadMovies();
+            });
+
+            $("#rentForm").on("submit", function (e) {
+                e.preventDefault();
+
+                const startRent = new Date($("#rentStart").val());
+                const endRent = new Date($("#rentEnd").val());
+                const todayRent = new Date();
+
+                // Strip time from todayRent (set to 00:00:00)
+                todayRent.setHours(0, 0, 0, 0);
+
+                if (startRent < todayRent || endRent < todayRent) {
+                    showMessage("Rent dates cannot be in the past.");
+                    return;
+                }
+
+                if (startRent > endRent) {
+                    showMessage("End rent's date has to be after start rent's date!");
+                    return;
+                }
+
+                if (startRent.getTime() === endRent.getTime()) {
+                    showMessage("Start rent's date and end rent's date have"
+                    + " to be different from each other!");
+                    return;
+                }
+
+                const port = 7218;
+                const postUrl = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/RentMovie`;
+
+                const movieObj = {
+                    UserId: user.id,
+                    MovieId: currentMovieObj.id,
+                    RentStart: startRent,
+                    RentEnd: endRent
+                };
+                ajaxCall("POST", postUrl, JSON.stringify(movieObj), insertSCB, insertECB);
+            });
+
+            $("#rentStart, #rentEnd").on("change", calculateTotalRent);
+            function calculateTotalRent() {
+                const start = new Date($("#rentStart").val());
+                const end = new Date($("#rentEnd").val());
+
+                if (isNaN(start) || isNaN(end)) {
+                    $("#totalRentPrice").text(""); // clear if dates are invalid
+                    return;
+                }
+
+                // Calculate the difference in days
+                const msInDay = 1000 * 60 * 60 * 24;
+                const dayDiff = Math.ceil((end - start) / msInDay);
+
+                // Only calculate if valid range
+                if (dayDiff > 0) {
+                    const pricePerDay = currentMovieObj.priceToRent;
+                    const total = dayDiff * pricePerDay;
+                    $("#totalRentPrice").text(`Total: $${total} for ${dayDiff} day(s)`);
+                } else {
+                    $("#totalRentPrice").text(""); // Invalid or 0-day range
+                }
+            }
+        });
+
+        function loadMovies() {
+            $(".search-container").show();
+            const port = 7218;
+            const getUrl = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/Movie`;
+            ajaxCall("GET", getUrl, "", getSCB, getECB);
+        }
+
+        function AddToCart(movieObj) {
+            if (!isLoggedIn()) {
+                showMessage("You are not logged in. Referring to login page...");
+                setTimeout(() => {
+                    window.location.href = "LoginAndRegister.html";
+                }, 2200);
+                return;
+            }
+            $("#insertBtn").prop('disabled', false);
+            currentMovieObj = movieObj; // Save it for later
+            console.log(currentMovieObj);
+            $("#rentDialog")[0].showModal();
+        }
+
+        function getSCB(res)
+        {
+            console.log(res);
+            for (const movie of res) {
+                // Create the movie card container
+                const $movieCard = $("<div>").addClass("movie-card");
+                $movieCard.attr("id", `${movie["id"]}`);
+                $movieCard.attr("Title", movie.primaryTitle);
+                
+                // Movie image
+                const $img = $("<img>").attr({
+                    src: movie.primaryImage,
+                    alt: movie.primaryTitle
+                });
+
+                // Add to Cart Button
+                const $cartButton = $("<button>")
+                    .addClass("add-to-cart")
+                    .text("Rent the movie")
+                    .on("click", () => AddToCart(movie));
+
+                // Rating badge
+                const $ratingDiv = $("<div>")
+                    .addClass("rating-badge")
+                    .text(`⭐ ${movie.averageRating}/10`);
+
+                // Movie title
+                const $title = $("<h3>")
+                    .addClass("movie-title")
+                    .text(movie.primaryTitle);
+
+                // Metadata
+                const $movieRated = $("<span>")
+                    .addClass("movie-language")
+                    .text(movie.language);
+
+                const $meta = $("<div>")
+                    .addClass("movie-meta")
+                    .html(`${movie.year} | ${movie.runtimeMinutes} min | `)
+                    .append($movieRated);
+
+                // Description
+                const $description = $("<p>")
+                    .addClass("movie-description")
+                    .text(movie.description);
+
+                // Genres
+                const $genresDiv = $("<div>").addClass("genres");
+                const genresArray = movie.genres ? movie.genres.split(',').map(g => g.trim()) : [];
+
+                genresArray.forEach(genre => {
+                    $("<span>")
+                        .addClass("genre-badge")
+                        .text(genre)
+                        .appendTo($genresDiv);
+                });
+
+                // Separator
+                const $separator = $("<div>").addClass("separator");
+
+                // Movie Stats
+                const $movieStatsDiv = $("<div>").addClass("movie-stats");
+
+                const createStatDiv = (label, value) => {
+                    return $("<div>").append(
+                        $("<span>")
+                            .text(label)
+                            .css({ color: "gray", display: "block" }),
+                        $("<span>").text(formatNumber(value))
+                    );
+                };
+
+                $movieStatsDiv.append(
+                    createStatDiv("Budget", movie.budget),
+                    createStatDiv("Box Office", movie.grossWorldwide),
+                    createStatDiv("Votes", movie.numVotes)
+                );
+
+                // Movie Info Container
+                const $movieInfo = $("<div>").addClass("movie-info").append(
+                    $title,
+                    $meta,
+                    $description,
+                    $genresDiv,
+                    $separator,
+                    $movieStatsDiv
+                );
+
+                // Final assembly
+                $movieCard.append($img, $cartButton, $ratingDiv, $movieInfo);
+                $("#moviesDiv").append($movieCard);
+            }
+        }
+
+        function getECB(err)
+        {
+            console.log(err);
+        }
+
+        function insertSCB(res) {
+            $("#insertBtn").prop('disabled', true); // Rejecting access to the button after he is clicked
+            const $message = $('#cartMessage');
+            $message.addClass('show');
+
+            if (res.success === true) {
+                $message.css('background-color', 'green')
+                    .text(`${res.message}`);
+            } else {
+                $message.css('background-color', 'green')
+                    .text("A problem occured. Please try again");
+            }
+
+            $message.fadeIn().delay(2000).fadeOut(function () {
+                $message.removeClass('show').hide();
+                $("#rentDialog")[0].close();
+            });
+        }
+
+        function insertECB(err) {
+            $("#insertBtn").prop('disabled', true); // Rejecting access to the button after he is clicked
+            console.log(err);
+            const $message = $('#cartMessage');
+            $message.addClass('show');
+
+            // Extract message from server response if available
+            const responseJSON = err.responseJSON;
+            const message = responseJSON?.message || 'Something went wrong. Please try again.';
+            console.log(message);
+
+            $message.css('background-color', 'red').text(message);
+
+            $message.fadeIn().delay(2000).fadeOut(function () {
+                $message.removeClass('show').hide();
+                $("#rentDialog")[0].close();
+            });
+        }
+
+        function ReadMovieByReleaseDate() {
+            const startDate = $('#searchStartDate').val();
+            const endDate = $('#searchEndDate').val();
+            $('#searchStartDate').val('');
+            $('#searchEndDate').val('');
+
+            if (!startDate || !endDate) {
+                showMessage("Please select both start and end dates.");
+                return;
+            }
+
+            const port = 7218
+            const GetByReleaseDateUrl = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/Movie/GetByReleaseDate/from/${startDate}/until/${endDate}`;
+            ajaxCall("GET", GetByReleaseDateUrl, "", movieByDateSCB, movieByDateECB);
+        }
+
+        function movieByDateSCB(res) {
+            // Create a list of valid movie IDs from the response
+            const validMovieIds = res.map(movie => `${movie.id}`);
+
+            // Show only the matching movie cards
+            $("#moviesDiv .movie-card").each(function () {
+                const $movieCard = $(this);
+                const cardId = $movieCard.attr("id");
+
+                // Show if ID is in the response set, otherwise hide
+                $movieCard.toggle(validMovieIds.includes(cardId));
+            });
+        }
+        
+        function movieByDateECB(err)
+        {
+            console.log(err);
+            showMessage("There was a problem! Please try again!");
+        }
+
+        function ReadMovieByTitle()
+        {
+            const searchString = $('#searchTitle').val();
+            $('#searchTitle').val('');
+            if(!searchString)
+            {
+                showMessage("You have to type something!");     
+                return;
+            }
+
+            const port = 7218
+            const GetByReleaseDateUrl =
+            `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/Movie/GetByTitle?title=${searchString}`;
+            ajaxCall("GET", GetByReleaseDateUrl, "", movieByTitleSCB, movieByTitleECB);
+        }
+
+        function movieByTitleSCB(res)
+        {
+            const validTitles = res.map(movie => movie.primaryTitle);
+            $("#moviesDiv .movie-card").each(function () {
+                const $movieCard = $(this);
+                const tempTitle = $movieCard.attr("Title");
+
+                // Show if ID is in the response set, otherwise hide
+                $movieCard.toggle(validTitles.includes(tempTitle));
+            });
+        }
+
+        function movieByTitleECB(err)
+        {
+            console.log(err);
+        }
+    </script>
+</head>
+
+
+
+<body>
+    <header>
+        <nav>
+            <a href="MyMovies.html">My Movies</a>
+            <a href="MovieData.html">Add a Movie</a>
+            <a href="EditProfile.html" id="editProfileBTN">Edit My Profile</a>
+            <a href="LoginAndRegister.html">Login And Register</a>
+            <div class="nav-user-controls">
+                <span id="userGreeting" class="greeting"></span>
+                <a href="#" id="logoutBtn" class="logout-link">Logout</a>
+            </div>
+        </nav>
+    </header>
+
+    <div class="buttonDiv">
+        <button>Load Movies</button>
+    </div>
+
+    <h2>
+        <span>All Movies:</span>
+    </h2>
+
+    <div class="search-container">
+        <div class="search-bar">
+            <input type="text" id="searchTitle" placeholder="Search By Title">
+            <button onclick="ReadMovieByTitle()">
+                <img src="images/searchIcon.png" />
+            </button>
+        </div>
+        <label>Start Date: </label>
+        <div class="search-bar">
+            <input type="date" id="searchStartDate">
+            <button onclick="ReadMovieByReleaseDate()">
+                <img src="images/searchIcon.png" />
+            </button>
+        </div>
+        <label>End Date: </label>
+        <div class="search-bar">
+            <input type="date" id="searchEndDate">
+            <button onclick="ReadMovieByReleaseDate()">
+                <img src="images/searchIcon.png" />
+            </button>
+        </div>
+    </div>
+
+    <div id="moviesDiv">
+        <!-- Rendered movies go here -->
+    </div>
+
+    <div id="cartMessage" class="cart-message">
+        <!-- Proper message will be displayed if movie was added to cart or not -->
+    </div>
+
+    <dialog id="messageDialog">
+        <p id="messageText"></p>
+    </dialog>
+
+    <dialog id="rentDialog">
+        <form id="rentForm">
+            <button type="button" class="close-dialog"
+            onclick="$(`#rentDialog`)[0].close()"><span>×</span></button>
+            <h3>Select Rent Dates</h3>
+            <label for="rentStart">Rent Start:</label><br>
+            <input type="date" id="rentStart" name="rentStart" required>
+            <label for="rentEnd">Rent End:</label><br>       
+            <input type="date" id="rentEnd" name="rentEnd" required>
+            <p id="totalRentPrice"></p>
+            <button id="insertBtn" type="submit">Rent the movie</button>
+        </form>
+    </dialog>
+
+</body>
+</html>

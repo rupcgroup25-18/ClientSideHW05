@@ -1,0 +1,257 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="utf-8" />
+    <title>Add a Movie</title>
+    <link href="MovieDataCSS.css" rel="stylesheet" />
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+            crossorigin="anonymous">
+    </script>
+
+    <script src="scripts/ajaxCalls.js"></script>
+    <script src="scripts/auth.js"></script>
+    <script src="scripts/showMessage.js"></script>
+    <script src="moviesArray/movies-db.js"></script>
+
+    <script>
+
+        $(document).ready(function ()
+        {
+            showLoginDialogIfNeeded();
+
+            const user = getLoggedInUser();
+            if (isLoggedIn()) {
+                $("#userGreeting").text(`Hi, ${user.name}`);
+                $("#editProfileBTN").show()
+                $("#logoutBtn").show();
+                
+            }
+            else {
+                $("#logoutBtn").hide();
+                $("#editProfileBTN").hide()
+            }
+
+            $("#logoutBtn").click(function (e) {
+                e.preventDefault();
+                localStorage.removeItem("loggedInUser");
+                showMessage("You have successfully logged out.");
+                setTimeout(() => {
+                    window.location.href = "LoginAndRegister.html";
+                }, 2000);
+            });
+
+            const languages = new Set();
+            const genresSet = new Set();
+
+            movies.forEach(movie => {
+                languages.add(movie.language);
+                movie.genres.forEach(g => genresSet.add(g.trim()));
+            });
+
+            languages.forEach(lang => {
+                if (lang && lang.toLowerCase() !== "null") {
+                    $("#language").append(`<option value="${lang}">${lang}</option>`);
+                }
+            });
+
+            genresSet.forEach(genre => {
+                const genreChip = `<span class="genre-chip" data-genre="${genre}">${genre}</span>`;
+                $("#genres-container").append(genreChip);
+            });
+
+            $("#genres-container").on("click", ".genre-chip", function () {
+                $(this).toggleClass("selected"); 
+            });
+
+            const imdbPattern = /^https:\/\/www\.imdb\.com\/title\/[\w\d]+\/$/;
+            const imagePattern = /\.(jpeg|jpg|gif|png|webp|bmp|svg)(\?.*)?$/i;
+
+            inputValidation("#url", val => val === "" || imdbPattern.test(val), "Enter a valid IMDb URL (https://www.imdb.com/title/xxxxx/)");
+            inputValidation("#primaryImage", val => imagePattern.test(val), "Enter a valid image URL ending in .jpg, .png, etc.");
+            inputValidation("#year", val => /^\d{4}$/.test(val), "Year must be a 4-digit number.");
+
+            $("#movieForm").submit(function (e) {
+                e.preventDefault();
+
+                const selectedGenres = [];
+                $(".genre-chip.selected").each(function () {
+                    selectedGenres.push($(this).data("genre"));
+                });
+
+                const url = $("#url").val().trim();
+                const title = $("#primaryTitle").val().trim();
+                const description = $("#description").val().trim();
+                const primaryImage = $("#primaryImage").val().trim();
+                const year = $("#year").val().trim();
+                const releaseDate = $("#releaseDate").val();
+                const language = $("#language").val();
+                const budget = $("#budget").val().trim();
+                const grossWorldwide = $("#grossWorldwide").val().trim();
+                const isAdult = $("#isAdult").is(":checked");
+                const runtimeMinutes = $("#runtimeMinutes").val().trim();
+                const averageRating = $("#averageRating").val().trim();
+                const numVotes = $("#numVotes").val().trim();
+
+                const newMovie = {
+                    url,
+                    primaryTitle: title,
+                    description,
+                    primaryImage,
+                    year: parseInt(year),
+                    releaseDate,
+                    language,
+                    budget: parseFloat(budget),
+                    grossWorldwide: parseFloat(grossWorldwide) || 0,
+                    genres: selectedGenres.join(", "),
+                    isAdult,
+                    runtimeMinutes: parseInt(runtimeMinutes),
+                    averageRating: parseFloat(averageRating) || 0,
+                    numVotes: parseInt(numVotes) || 0
+                };
+
+                const port = 7218;
+                const MovieApiURL = `https://proj.ruppin.ac.il/cgroup18/test2/tar1/api/Movie`;
+                ajaxCall("POST", MovieApiURL, JSON.stringify(newMovie), newMovieSCB, newMovieECB);
+            });
+        });
+
+        function newMovieSCB(res) {
+            console.log(res);
+            if (!res) {
+                showMessage("There is already a movie with the same title.");
+                return;
+            }
+            showMessage("The new movie was added successfully.");
+            $("#movieForm")[0].reset();
+        }
+
+        function newMovieECB(err) {
+            console.log(err);
+            showMessage("Failed to add the new movie.");
+            $("#movieForm")[0].reset();
+        }
+
+        function inputValidation(selector, testFn, errorMessage) {
+            $(selector).on("input blur", function () {
+                const value = $(this).val().trim();
+                const isValid = testFn(value);
+                if (!isValid) {
+                    this.setCustomValidity(errorMessage);
+                    this.reportValidity();
+                }
+                else {
+                    this.setCustomValidity("");
+                }
+            });
+        }
+
+    </script>
+
+</head>
+<body>
+
+    <header>
+        <nav>
+            <a href="index.html">Home</a>
+            <a href="MyMovies.html">My Movies</a>
+            <a href="LoginAndRegister.html">Login And Register</a>
+            <a href="EditProfile.html" id="editProfileBTN">Edit My Profile</a>
+            <div class="nav-user-controls">
+                <span id="userGreeting" class="greeting"></span>
+                <a href="#" id="logoutBtn" class="logout-link">Logout</a>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h2>Add New Movie</h2>
+        <form id="movieForm">
+
+            <div class="form-group">
+                <label for="url">URL</label>
+                <input type="text" id="url" />
+            </div>
+
+            <div class="form-group">
+                <label for="primaryTitle">Title <span class="required">*</span></label>
+                <input type="text" id="primaryTitle" required />
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <input type="text" id="description" />
+            </div>
+
+            <div class="form-group">
+                <label for="primaryImage">Image URL <span class="required">*</span></label>
+                <input type="text" id="primaryImage" required />
+            </div>
+
+            <div class="form-group">
+                <label for="year">Year <span class="required">*</span></label>
+                <input type="number" id="year" required />
+            </div>
+
+            <div class="form-group">
+                <label for="releaseDate">Release Date <span class="required">*</span></label>
+                <input type="date" id="releaseDate" required />
+            </div>
+
+            <div class="form-group">
+                <label for="language">Language <span class="required">*</span></label>
+                <select id="language" required>
+                    <option value="">Select a language</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="budget">Budget (min 100,000) <span class="required">*</span></label>
+                <input type="number" id="budget" value="100000" min="100000" required />
+            </div>
+
+            <div class="form-group">
+                <label for="grossWorldwide">Gross Worldwide</label>
+                <input type="number" id="grossWorldwide" value="0" min="0"/>
+            </div>
+
+            <div class="form-group">
+                <label for="genres-container">Genres</label>
+                <div id="genres-container">
+                    <!-- Genres will be added here as clickable chips -->
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="isAdult">Is Adult?</label>
+                <input type="checkbox" id="isAdult" />
+            </div>
+
+            <div class="form-group">
+                <label for="runtimeMinutes">Runtime (minutes) <span class="required">*</span></label>
+                <input type="number" id="runtimeMinutes" min="0" required />
+            </div>
+
+            <div class="form-group">
+                <label for="averageRating">Average Rating</label>
+                <input type="number" step="0.1" id="averageRating" value="0" min="0" max="10" />
+            </div>
+
+            <div class="form-group">
+                <label for="numVotes">Number of Votes</label>
+                <input type="number" id="numVotes" value="0" min="0" />
+            </div>
+
+            <button type="submit" class="login-button">Add Movie</button>
+
+        </form>
+    </div>
+
+    <dialog id="messageDialog">
+        <p id="messageText"></p>
+    </dialog>
+
+</body>
+</html>
