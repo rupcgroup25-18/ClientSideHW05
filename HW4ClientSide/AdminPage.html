@@ -36,12 +36,7 @@
             const userTableBody = document.getElementById('userTableBody');
             const messageArea = document.getElementById('messageArea');
             const user = getLoggedInUser();
-
-            if (!isLoggedIn()) {
-                window.location.href = 'LoginAndRegister.html';
-                return;
-            }
-
+            
             loadUsers();
 
             function loadUsers() {
